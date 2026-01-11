@@ -15,7 +15,7 @@ export const CONFIG = {
 
   // ジャンプ
   JUMP: {
-    MAX_CHARGE_TIME: 1500, // ミリ秒
+    MAX_CHARGE_TIME: 1000, // ミリ秒（1秒）
     MAX_VELOCITY: 18,
     MIN_VELOCITY: 6,
     MIN_ANGLE: Math.PI * 0.25, // 45度
@@ -44,7 +44,9 @@ export const CONFIG = {
     BACKGROUND: '#2D2A5A',
     PLATFORM: '#E8A87C',
     PLATFORM_LIGHT: '#F0C8A8',
-    WATER: '#CC00FF',
+    GROUND: '#1E1B3A', // 地面の色（背景より暗い紺色）
+    GROUND_LINE: '#3D3A6A', // 地面のグリッド線
+    WATER: '#660099',
     MOON: '#FFD93D',
     STAR: '#9B8AC4',
     STAR_BRIGHT: '#C9B8E0',
@@ -88,8 +90,8 @@ export const CONFIG = {
       platformCount: 8,
       platformWidthMin: 100,
       platformWidthMax: 140,
-      gapMin: 160,
-      gapMax: 200,
+      gapMin: 130,
+      gapMax: 170,
       waterSpeed: 0.5,
       waterDelay: 5000,
       baseTime: 40,

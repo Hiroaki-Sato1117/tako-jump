@@ -67,11 +67,11 @@ export function generateMoon(platforms: Platform[]): Moon {
   };
 }
 
-// 水を初期化（地面より下から開始）
+// 水を初期化（画面外から開始）
 export function initWater(stageConfig: StageConfig): Water {
   const groundY = CONFIG.CANVAS_HEIGHT - 50;
   return {
-    y: groundY + 100, // 地面より下から開始
+    y: groundY + 300, // 画面外から開始（見えない位置）
     speed: stageConfig.waterSpeed,
     isRising: false,
     waveOffset: 0,

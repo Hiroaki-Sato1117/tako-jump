@@ -83,9 +83,36 @@ export function drawStars(ctx: CanvasRenderingContext2D, stars: Star[], cameraY:
 
 // 床を描画
 export function drawPlatforms(ctx: CanvasRenderingContext2D, platforms: Platform[], cameraY: number) {
-  platforms.forEach(platform => {
+  platforms.forEach((platform, index) => {
     const screenY = platform.y - cameraY;
 
+    // 地面（index 0）の場合は特別な描画
+    if (index === 0) {
+      // 画面外の場合はスキップ
+      if (screenY > CONFIG.CANVAS_HEIGHT) return;
+
+      // 地面は画面下まで続く紺色のブロック
+      const groundHeight = CONFIG.CANVAS_HEIGHT - screenY;
+      if (groundHeight <= 0) return;
+
+      // 地面本体（紺色）
+      ctx.fillStyle = CONFIG.COLORS.GROUND;
+      ctx.fillRect(0, screenY, CONFIG.CANVAS_WIDTH, groundHeight);
+
+      // ドット絵風のグリッドパターン
+      ctx.fillStyle = CONFIG.COLORS.GROUND_LINE;
+      const gridSize = 16;
+      for (let x = 0; x < CONFIG.CANVAS_WIDTH; x += gridSize) {
+        ctx.fillRect(x, screenY, 1, groundHeight);
+      }
+      for (let y = screenY; y < CONFIG.CANVAS_HEIGHT; y += gridSize) {
+        ctx.fillRect(0, y, CONFIG.CANVAS_WIDTH, 1);
+      }
+
+      return;
+    }
+
+    // 浮遊床の描画
     // 画面外はスキップ
     if (screenY < -CONFIG.PLATFORM.HEIGHT || screenY > CONFIG.CANVAS_HEIGHT) return;
 
@@ -119,7 +146,7 @@ export function drawTako(
   const { tako } = state;
   const screenY = tako.position.y - state.camera.y;
 
-  // 画像を選択
+  // 画像を選択（1秒チャージに合わせて閾値調整）
   let imageName: string;
   if (tako.state === 'dead') {
     imageName = 'dead';
@@ -138,13 +165,21 @@ export function drawTako(
 
   ctx.save();
 
+  // チャージ量に応じて縮むエフェクト（バネのように）
+  // 最大30%縮む
+  const shrinkRatio = 1 - tako.chargeRatio * 0.3;
+  const drawHeight = CONFIG.TAKO.HEIGHT * shrinkRatio;
+  // 縮んだ分だけ下にずらして床に接地したまま
+  const yOffset = CONFIG.TAKO.HEIGHT - drawHeight;
+  const adjustedScreenY = screenY + yOffset;
+
   // 向きを反転
   if (!tako.facingRight) {
     ctx.translate(tako.position.x + CONFIG.TAKO.WIDTH, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(img, 0, screenY, CONFIG.TAKO.WIDTH, CONFIG.TAKO.HEIGHT);
+    ctx.drawImage(img, 0, adjustedScreenY, CONFIG.TAKO.WIDTH, drawHeight);
   } else {
-    ctx.drawImage(img, tako.position.x, screenY, CONFIG.TAKO.WIDTH, CONFIG.TAKO.HEIGHT);
+    ctx.drawImage(img, tako.position.x, adjustedScreenY, CONFIG.TAKO.WIDTH, drawHeight);
   }
 
   ctx.restore();
@@ -182,7 +217,7 @@ export function drawMoon(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.fill();
 }
 
-// 水を描画
+// 水を描画（ドット絵風）
 export function drawWater(ctx: CanvasRenderingContext2D, state: GameState) {
   const { water, camera } = state;
   const screenY = water.y - camera.y;
@@ -190,35 +225,35 @@ export function drawWater(ctx: CanvasRenderingContext2D, state: GameState) {
   // 画面外はスキップ
   if (screenY > CONFIG.CANVAS_HEIGHT) return;
 
-  // 波形を描画
+  const pixelSize = 8; // ドットのサイズ
+  const waveAmplitude = 8; // 波の振幅（ピクセル単位）
+
+  // 水の本体をドット絵風に描画
   ctx.fillStyle = CONFIG.COLORS.WATER;
-  ctx.beginPath();
-  ctx.moveTo(0, CONFIG.CANVAS_HEIGHT);
 
-  for (let x = 0; x <= CONFIG.CANVAS_WIDTH; x += 10) {
-    const waveY = screenY +
-      Math.sin((x + water.waveOffset) * 0.05) * CONFIG.WATER.WAVE_HEIGHT;
-    ctx.lineTo(x, waveY);
-  }
+  for (let x = 0; x < CONFIG.CANVAS_WIDTH; x += pixelSize) {
+    // 波形の計算（ピクセル化）
+    const waveOffset = Math.sin((x + water.waveOffset) * 0.08) * waveAmplitude;
+    const pixelY = Math.floor((screenY + waveOffset) / pixelSize) * pixelSize;
 
-  ctx.lineTo(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
-  ctx.closePath();
-  ctx.fill();
-
-  // 波の白いエッジ
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let x = 0; x <= CONFIG.CANVAS_WIDTH; x += 10) {
-    const waveY = screenY +
-      Math.sin((x + water.waveOffset) * 0.05) * CONFIG.WATER.WAVE_HEIGHT;
-    if (x === 0) {
-      ctx.moveTo(x, waveY);
-    } else {
-      ctx.lineTo(x, waveY);
+    // 水の縦列を描画
+    const waterHeight = CONFIG.CANVAS_HEIGHT - pixelY;
+    if (waterHeight > 0) {
+      ctx.fillRect(x, pixelY, pixelSize, waterHeight);
     }
   }
-  ctx.stroke();
+
+  // 波の泡（白いドット）
+  ctx.fillStyle = '#FFFFFF';
+  for (let x = 0; x < CONFIG.CANVAS_WIDTH; x += pixelSize * 2) {
+    const waveOffset = Math.sin((x + water.waveOffset) * 0.08) * waveAmplitude;
+    const pixelY = Math.floor((screenY + waveOffset) / pixelSize) * pixelSize;
+
+    // 波頭に白いドットを配置
+    if (pixelY < CONFIG.CANVAS_HEIGHT) {
+      ctx.fillRect(x, pixelY, pixelSize, pixelSize);
+    }
+  }
 }
 
 // HUDを描画

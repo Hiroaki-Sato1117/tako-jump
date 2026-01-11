@@ -61,6 +61,7 @@ export function checkPlatformCollision(
             velocity: { x: 0, y: 0 },
             state: 'idle',
             isGrounded: true,
+            airChargeLockedVelocityX: null, // 着地時にリセット
           },
           landed: true,
         };

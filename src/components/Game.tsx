@@ -72,19 +72,15 @@ function calculateKeyboardJump(
   chargeRatio: number,
   direction: { x: number; y: number }
 ): { vx: number; vy: number; facingRight: boolean } {
-  // 方向が指定されていない場合は真上
-  let angle = Math.PI / 2; // 真上
+  // 基本は真上（90度）
+  let angle = Math.PI / 2;
 
-  if (direction.x !== 0 || direction.y !== 0) {
-    // 矢印キーの方向からジャンプ角度を計算
+  // 方向指定があっても弱い影響のみ（15度だけ傾く）
+  if (direction.x !== 0) {
     if (direction.x < 0) {
-      angle = Math.PI * 0.75; // 左上 135度
-    } else if (direction.x > 0) {
-      angle = Math.PI * 0.25; // 右上 45度
-    }
-    // 上下の調整
-    if (direction.y < 0 && direction.x === 0) {
-      angle = Math.PI / 2; // 真上
+      angle = Math.PI * 0.58; // 左上 約105度（真上から15度だけ左）
+    } else {
+      angle = Math.PI * 0.42; // 右上 約75度（真上から15度だけ右）
     }
   }
 
@@ -260,25 +256,26 @@ export function Game() {
       // chargeStartTimeがnullでない = チャージ中だった
       const wasCharging = tako.chargeStartTime !== null;
       const wasAirCharge = tako.airChargeLockedVelocityX !== null;
-      if (keyboard.spaceJustReleased && wasCharging) {
-        // 空中チャージの場合は真上にジャンプ（慣性は維持）
-        const jumpDirection = wasAirCharge ? { x: 0, y: -1 } : jumpDirectionRef.current;
-        const { vx, vy, facingRight } = calculateKeyboardJump(
-          tako.chargeRatio,
-          jumpDirection
-        );
-        // 空中チャージ時は現在のx速度を維持したまま、ジャンプのy速度だけ適用
+      if (keyboard.spaceJustReleased && wasCharging && tako.state !== 'dead') {
         if (wasAirCharge) {
-          tako.velocity = { x: tako.airChargeLockedVelocityX!, y: vy };
+          // 空中チャージの場合はジャンプせず、チャージのみ解除（慣性は維持）
+          tako.state = 'jumping';
+          tako.chargeStartTime = null;
+          tako.chargeRatio = 0;
+          tako.airChargeLockedVelocityX = null;
         } else {
+          // 地上チャージの場合のみジャンプ発動
+          const { vx, vy, facingRight } = calculateKeyboardJump(
+            tako.chargeRatio,
+            jumpDirectionRef.current
+          );
           tako.velocity = { x: vx, y: vy };
+          tako.state = 'jumping';
+          tako.isGrounded = false;
+          tako.facingRight = facingRight;
+          tako.chargeStartTime = null;
+          tako.chargeRatio = 0;
         }
-        tako.state = 'jumping';
-        tako.isGrounded = false;
-        tako.facingRight = wasAirCharge ? tako.facingRight : facingRight;
-        tako.chargeStartTime = null;
-        tako.chargeRatio = 0;
-        tako.airChargeLockedVelocityX = null;
         // 方向をリセット
         jumpDirectionRef.current = { x: 0, y: -1 };
       }
@@ -334,6 +331,7 @@ export function Game() {
       // 水との衝突
       if (checkWaterCollision(tako, newState.water) && tako.state !== 'dead') {
         tako.state = 'dead';
+        tako.velocity = { x: 0, y: 0 }; // 死亡時に動きを止める
         newState.tako = tako;
         newState.lives--;
 
@@ -358,41 +356,44 @@ export function Game() {
             }));
           }, 1000);
         } else {
-          // リスポーン（即座に実行、水もリセット）
-          const startPlatform = newState.platforms[0];
+          // リスポーン（1秒後に実行、死亡モーションを表示）
           const stageConfig = CONFIG.STAGES[newState.stage - 1];
 
-          // タコをリスポーン
-          newState.tako = {
-            position: { x: startPlatform.x + 50, y: startPlatform.y - CONFIG.TAKO.HEIGHT },
-            velocity: { x: 0, y: 0 },
-            state: 'idle',
-            chargeStartTime: null,
-            chargeRatio: 0,
-            isGrounded: true,
-            facingRight: true,
-            airChargeLockedVelocityX: null,
-          };
-
-          // カメラをリセット
-          newState.camera = {
-            y: startPlatform.y - CONFIG.CANVAS_HEIGHT + 200,
-            targetY: startPlatform.y - CONFIG.CANVAS_HEIGHT + 200,
-          };
-
-          // 水をリセット
-          newState.water = initWater(stageConfig);
-
-          // 水の上昇を遅延開始
           if (waterDelayTimerRef.current) {
             clearTimeout(waterDelayTimerRef.current);
           }
-          waterDelayTimerRef.current = window.setTimeout(() => {
-            setState(p => ({
-              ...p,
-              water: { ...p.water, isRising: true },
-            }));
-          }, stageConfig.waterDelay);
+
+          setTimeout(() => {
+            setState(p => {
+              const startPlatform = p.platforms[0];
+              return {
+                ...p,
+                tako: {
+                  position: { x: startPlatform.x + 50, y: startPlatform.y - CONFIG.TAKO.HEIGHT },
+                  velocity: { x: 0, y: 0 },
+                  state: 'idle',
+                  chargeStartTime: null,
+                  chargeRatio: 0,
+                  isGrounded: true,
+                  facingRight: true,
+                  airChargeLockedVelocityX: null,
+                },
+                camera: {
+                  y: startPlatform.y - CONFIG.CANVAS_HEIGHT + 200,
+                  targetY: startPlatform.y - CONFIG.CANVAS_HEIGHT + 200,
+                },
+                water: initWater(stageConfig),
+              };
+            });
+
+            // 水の上昇を遅延開始
+            waterDelayTimerRef.current = window.setTimeout(() => {
+              setState(p => ({
+                ...p,
+                water: { ...p.water, isRising: true },
+              }));
+            }, stageConfig.waterDelay);
+          }, 1000); // 1秒後にリスポーン
         }
       }
 
