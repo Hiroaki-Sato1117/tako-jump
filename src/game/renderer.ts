@@ -336,30 +336,26 @@ export function drawWater(ctx: CanvasRenderingContext2D, state: GameState) {
     return;
   }
 
-  // 画像を1.5倍に拡大して表示（2/3の幅を使用 = 1.5倍表示）
-  const scale = 1.5;
+  // 画像を1.25倍に拡大して表示（4/5の幅を使用 = 1.25倍表示）
+  const scale = 1.25;
   const imgWidth = waterImage.width * scale;
   const imgHeight = waterImage.height * scale;
 
+  // 横スクロールオフセット（左方向にゆっくり移動、ループ）
+  const scrollSpeed = 0.3;
+  const scrollOffset = (water.waveOffset * scrollSpeed) % imgWidth;
+
   // 画像をタイル状に並べて水面を描画
-  // 水面の上端から開始
   const startY = screenY;
 
-  // 横方向にタイル
-  for (let x = 0; x < CONFIG.CANVAS_WIDTH; x += imgWidth) {
+  // 横方向にタイル（スクロールオフセット付き、ループのため左右に余分に描画）
+  for (let x = -scrollOffset - imgWidth; x < CONFIG.CANVAS_WIDTH + imgWidth; x += imgWidth) {
     // 縦方向にタイル（水面から画面下端まで）
     for (let y = startY; y < CONFIG.CANVAS_HEIGHT; y += imgHeight) {
-      const drawWidth = Math.min(imgWidth, CONFIG.CANVAS_WIDTH - x);
-      const drawHeight = Math.min(imgHeight, CONFIG.CANVAS_HEIGHT - y);
-
-      // 描画する部分のソース領域を計算
-      const srcWidth = drawWidth / scale;
-      const srcHeight = drawHeight / scale;
-
       ctx.drawImage(
         waterImage,
-        0, 0, srcWidth, srcHeight, // ソース領域
-        x, y, drawWidth, drawHeight // 描画領域
+        0, 0, waterImage.width, waterImage.height, // ソース領域（全体）
+        x, y, imgWidth, imgHeight // 描画領域
       );
     }
   }
