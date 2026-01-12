@@ -105,7 +105,7 @@ export const CONFIG = {
       iceRatio: 0,
       caterpillarRatio: 0,
       eelCount: 0,
-      waterSpeed: 0.6,
+      waterSpeed: 1.5,
       waterDelay: 8000,
       baseTime: 45,
     },
