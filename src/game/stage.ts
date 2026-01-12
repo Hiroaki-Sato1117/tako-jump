@@ -1,8 +1,13 @@
 import { CONFIG } from './config';
 import type { StageConfig } from './config';
-import type { Platform, Moon, Star, Water } from './types';
+import type { Platform, Moon, Star, Water, PlatformType } from './types';
 
-// 乱数生成
+// 乱数生成（整数）
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// 乱数生成（小数）
 function randomInRange(min: number, max: number): number {
   return Math.random() * (max - min) + min;
 }
@@ -10,44 +15,46 @@ function randomInRange(min: number, max: number): number {
 // 床を生成
 export function generatePlatforms(stageConfig: StageConfig): Platform[] {
   const platforms: Platform[] = [];
+  const blockSize = CONFIG.PLATFORM.BLOCK_SIZE;
 
   // 地面（一番下のフラットな床、画面幅全体）
   const groundY = CONFIG.CANVAS_HEIGHT - 50;
+  const groundBlockCount = Math.ceil(CONFIG.CANVAS_WIDTH / blockSize);
   platforms.push({
     x: 0,
     y: groundY,
     width: CONFIG.CANVAS_WIDTH,
+    type: 'normal',
+    blockCount: groundBlockCount,
   });
 
   // 浮遊床の開始位置（地面より上）
-  let currentY = groundY - 150;
+  let currentY = groundY - 100;
   let lastX = CONFIG.CANVAS_WIDTH / 2;
-  const zigzag = stageConfig.id >= 3; // Stage 3以降はジグザグ配置
 
   for (let i = 0; i < stageConfig.platformCount; i++) {
     const gap = randomInRange(stageConfig.gapMin, stageConfig.gapMax);
     currentY -= gap;
 
-    const width = randomInRange(stageConfig.platformWidthMin, stageConfig.platformWidthMax);
+    // ブロック数を整数でランダム生成
+    const blockCount = randomInt(stageConfig.blockCountMin, stageConfig.blockCountMax);
+    const width = blockCount * blockSize;
 
-    let x: number;
-    if (zigzag) {
-      // ジグザグ配置
-      if (i % 2 === 0) {
-        x = randomInRange(CONFIG.CANVAS_WIDTH * 0.5, CONFIG.CANVAS_WIDTH - width - 20);
-      } else {
-        x = randomInRange(20, CONFIG.CANVAS_WIDTH * 0.3);
-      }
-    } else {
-      // ランダム配置（前の床から到達可能な範囲）
-      const maxHorizontalJump = CONFIG.CANVAS_WIDTH * 0.6;
-      const minX = Math.max(20, lastX - maxHorizontalJump);
-      const maxX = Math.min(CONFIG.CANVAS_WIDTH - width - 20, lastX + maxHorizontalJump);
-      x = randomInRange(minX, maxX);
-    }
+    // 氷の床かどうかを判定
+    const isIce = Math.random() < stageConfig.iceRatio;
+    const type: PlatformType = isIce ? 'ice' : 'normal';
 
-    platforms.push({ x, y: currentY, width });
-    lastX = x;
+    // 位置を計算（到達可能な範囲内）
+    const maxHorizontalJump = CONFIG.CANVAS_WIDTH * 0.5;
+    const minX = Math.max(10, lastX - maxHorizontalJump);
+    const maxX = Math.min(CONFIG.CANVAS_WIDTH - width - 10, lastX + maxHorizontalJump);
+
+    // x座標をブロックサイズの倍数に揃える
+    const xRaw = randomInRange(minX, maxX);
+    const x = Math.round(xRaw / blockSize) * blockSize;
+
+    platforms.push({ x, y: currentY, width, type, blockCount });
+    lastX = x + width / 2;
   }
 
   return platforms;

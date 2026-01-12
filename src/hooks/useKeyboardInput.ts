@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 
 export interface KeyboardInputState {
   isSpacePressed: boolean;
@@ -6,83 +6,60 @@ export interface KeyboardInputState {
   spaceJustReleased: boolean;
 }
 
+// パフォーマンス最適化: Refベースのキーボード入力管理
 export function useKeyboardInput() {
-  const [state, setState] = useState<KeyboardInputState>({
+  const stateRef = useRef<KeyboardInputState>({
     isSpacePressed: false,
-    arrowDirection: { x: 0, y: -1 }, // デフォルトは真上
+    arrowDirection: { x: 0, y: -1 },
     spaceJustReleased: false,
   });
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
       e.preventDefault();
-      setState(prev => ({
-        ...prev,
-        isSpacePressed: true,
-        spaceJustReleased: false,
-      }));
+      stateRef.current.isSpacePressed = true;
+      stateRef.current.spaceJustReleased = false;
     }
 
-    // 矢印キーで方向を設定
     if (e.code === 'ArrowLeft') {
       e.preventDefault();
-      setState(prev => ({
-        ...prev,
-        arrowDirection: { x: -1, y: prev.arrowDirection.y },
-      }));
+      stateRef.current.arrowDirection.x = -1;
     }
     if (e.code === 'ArrowRight') {
       e.preventDefault();
-      setState(prev => ({
-        ...prev,
-        arrowDirection: { x: 1, y: prev.arrowDirection.y },
-      }));
+      stateRef.current.arrowDirection.x = 1;
     }
     if (e.code === 'ArrowUp') {
       e.preventDefault();
-      setState(prev => ({
-        ...prev,
-        arrowDirection: { x: prev.arrowDirection.x, y: -1 },
-      }));
+      stateRef.current.arrowDirection.y = -1;
     }
     if (e.code === 'ArrowDown') {
       e.preventDefault();
-      setState(prev => ({
-        ...prev,
-        arrowDirection: { x: prev.arrowDirection.x, y: 1 },
-      }));
+      stateRef.current.arrowDirection.y = 1;
     }
   }, []);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
       e.preventDefault();
-      setState(prev => ({
-        ...prev,
-        isSpacePressed: false,
-        spaceJustReleased: true,
-      }));
+      stateRef.current.isSpacePressed = false;
+      stateRef.current.spaceJustReleased = true;
     }
 
-    // 矢印キーを離したらその方向をリセット
     if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
-      setState(prev => ({
-        ...prev,
-        arrowDirection: { x: 0, y: prev.arrowDirection.y },
-      }));
+      stateRef.current.arrowDirection.x = 0;
     }
     if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
-      setState(prev => ({
-        ...prev,
-        arrowDirection: { x: prev.arrowDirection.x, y: 0 },
-      }));
+      stateRef.current.arrowDirection.y = 0;
     }
   }, []);
 
-  // spaceJustReleasedをリセット
   const clearSpaceReleased = useCallback(() => {
-    setState(prev => ({ ...prev, spaceJustReleased: false }));
+    stateRef.current.spaceJustReleased = false;
   }, []);
+
+  // ゲッター関数（現在の状態を取得）
+  const getState = useCallback(() => stateRef.current, []);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -94,5 +71,10 @@ export function useKeyboardInput() {
     };
   }, [handleKeyDown, handleKeyUp]);
 
-  return { ...state, clearSpaceReleased };
+  // 安定した参照を返す（stateRefを直接返す）
+  return {
+    stateRef,
+    clearSpaceReleased,
+    getState,
+  };
 }

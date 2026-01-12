@@ -27,49 +27,85 @@ export function updatePosition(tako: Tako): Tako {
   };
 }
 
-// 床との衝突判定
+// 床との衝突判定（高速落下時のすり抜け対策強化）
 export function checkPlatformCollision(
   tako: Tako,
   platforms: Platform[],
   _cameraY: number
-): { tako: Tako; landed: boolean } {
+): { tako: Tako; landed: boolean; landedPlatform: Platform | null } {
   const takoBottom = tako.position.y + CONFIG.TAKO.HEIGHT;
   const takoLeft = tako.position.x;
   const takoRight = tako.position.x + CONFIG.TAKO.WIDTH;
 
   // 落下中のみ判定
   if (tako.velocity.y <= 0) {
-    return { tako, landed: false };
+    return { tako, landed: false, landedPlatform: null };
   }
+
+  // 前フレームの位置を計算
+  const prevBottom = takoBottom - tako.velocity.y;
 
   for (const platform of platforms) {
     const platTop = platform.y;
+    const platBottom = platform.y + CONFIG.PLATFORM.HEIGHT;
     const platLeft = platform.x;
     const platRight = platform.x + platform.width;
 
-    // 横方向の重なり
-    const horizontalOverlap = takoRight > platLeft && takoLeft < platRight;
+    // 横方向の重なり（少し余裕を持たせる）
+    const horizontalOverlap = takoRight > platLeft + 2 && takoLeft < platRight - 2;
 
-    // 上から着地
-    if (horizontalOverlap) {
-      const prevBottom = takoBottom - tako.velocity.y;
-      if (prevBottom <= platTop && takoBottom >= platTop) {
-        return {
-          tako: {
-            ...tako,
-            position: { ...tako.position, y: platTop - CONFIG.TAKO.HEIGHT },
-            velocity: { x: 0, y: 0 },
-            state: 'idle',
-            isGrounded: true,
-            airChargeLockedVelocityX: null, // 着地時にリセット
-          },
-          landed: true,
-        };
-      }
+    if (!horizontalOverlap) continue;
+
+    // 上から着地判定（改良版）
+    // 条件1: 前フレームで床の上にいた
+    // 条件2: 現フレームで床を通過した、または床の上部に接触している
+    const wasAbove = prevBottom <= platTop + 4; // 少し余裕を持たせる
+    const nowAtOrBelow = takoBottom >= platTop;
+    const notTooDeep = takoBottom < platBottom + tako.velocity.y; // 床を完全にすり抜けていない
+
+    if (wasAbove && nowAtOrBelow && notTooDeep) {
+      const isIce = platform.type === 'ice';
+      const newVelocityX = isIce ? tako.velocity.x * CONFIG.ICE.FRICTION : 0;
+
+      return {
+        tako: {
+          ...tako,
+          position: { ...tako.position, y: platTop - CONFIG.TAKO.HEIGHT },
+          velocity: { x: newVelocityX, y: 0 },
+          state: 'idle',
+          isGrounded: true,
+          airChargeLockedVelocityX: null,
+        },
+        landed: true,
+        landedPlatform: platform,
+      };
     }
   }
 
-  return { tako, landed: false };
+  return { tako, landed: false, landedPlatform: null };
+}
+
+// 氷の床上での滑り処理
+export function applyIceFriction(tako: Tako, platform: Platform | null): Tako {
+  if (!platform || platform.type !== 'ice' || !tako.isGrounded) {
+    return tako;
+  }
+
+  // 氷の上で速度を徐々に減衰
+  const newVelocityX = tako.velocity.x * CONFIG.ICE.FRICTION;
+
+  // 速度が十分小さくなったら停止
+  if (Math.abs(newVelocityX) < 0.1) {
+    return {
+      ...tako,
+      velocity: { ...tako.velocity, x: 0 },
+    };
+  }
+
+  return {
+    ...tako,
+    velocity: { ...tako.velocity, x: newVelocityX },
+  };
 }
 
 // 画面端のループ（右端→左端、左端→右端）

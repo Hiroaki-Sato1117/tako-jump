@@ -28,11 +28,16 @@ export interface Tako {
   airChargeLockedVelocityX: number | null; // 空中チャージ開始時のx速度（慣性保持用）
 }
 
+// 床のタイプ
+export type PlatformType = 'normal' | 'ice';
+
 // 床
 export interface Platform {
   x: number;
   y: number;
   width: number;
+  type: PlatformType;
+  blockCount: number; // ブロック数（整数）
 }
 
 // 月（ゴール）

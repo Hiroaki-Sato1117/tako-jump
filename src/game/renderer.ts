@@ -83,6 +83,8 @@ export function drawStars(ctx: CanvasRenderingContext2D, stars: Star[], cameraY:
 
 // 床を描画
 export function drawPlatforms(ctx: CanvasRenderingContext2D, platforms: Platform[], cameraY: number) {
+  const blockSize = CONFIG.PLATFORM.BLOCK_SIZE;
+
   platforms.forEach((platform, index) => {
     const screenY = platform.y - cameraY;
 
@@ -101,11 +103,10 @@ export function drawPlatforms(ctx: CanvasRenderingContext2D, platforms: Platform
 
       // ドット絵風のグリッドパターン
       ctx.fillStyle = CONFIG.COLORS.GROUND_LINE;
-      const gridSize = 16;
-      for (let x = 0; x < CONFIG.CANVAS_WIDTH; x += gridSize) {
+      for (let x = 0; x < CONFIG.CANVAS_WIDTH; x += blockSize) {
         ctx.fillRect(x, screenY, 1, groundHeight);
       }
-      for (let y = screenY; y < CONFIG.CANVAS_HEIGHT; y += gridSize) {
+      for (let y = screenY; y < CONFIG.CANVAS_HEIGHT; y += blockSize) {
         ctx.fillRect(0, y, CONFIG.CANVAS_WIDTH, 1);
       }
 
@@ -116,23 +117,26 @@ export function drawPlatforms(ctx: CanvasRenderingContext2D, platforms: Platform
     // 画面外はスキップ
     if (screenY < -CONFIG.PLATFORM.HEIGHT || screenY > CONFIG.CANVAS_HEIGHT) return;
 
-    const tileCount = Math.ceil(platform.width / CONFIG.PLATFORM.TILE_SIZE);
+    // 氷の床か通常の床かで色を変える
+    const isIce = platform.type === 'ice';
+    const mainColor = isIce ? CONFIG.ICE.COLOR : CONFIG.COLORS.PLATFORM;
+    const lightColor = isIce ? CONFIG.ICE.COLOR_LIGHT : CONFIG.COLORS.PLATFORM_LIGHT;
 
-    for (let i = 0; i < tileCount; i++) {
-      const tileX = platform.x + i * CONFIG.PLATFORM.TILE_SIZE;
-      const tileWidth = Math.min(CONFIG.PLATFORM.TILE_SIZE, platform.width - i * CONFIG.PLATFORM.TILE_SIZE);
+    // ブロック単位で描画
+    for (let i = 0; i < platform.blockCount; i++) {
+      const blockX = platform.x + i * blockSize;
 
-      // タイル本体
-      ctx.fillStyle = CONFIG.COLORS.PLATFORM;
-      ctx.fillRect(tileX, screenY, tileWidth, CONFIG.PLATFORM.HEIGHT);
+      // ブロック本体
+      ctx.fillStyle = mainColor;
+      ctx.fillRect(blockX, screenY, blockSize, CONFIG.PLATFORM.HEIGHT);
 
       // 上辺のハイライト
-      ctx.fillStyle = CONFIG.COLORS.PLATFORM_LIGHT;
-      ctx.fillRect(tileX, screenY, tileWidth, 3);
+      ctx.fillStyle = lightColor;
+      ctx.fillRect(blockX, screenY, blockSize, 2);
 
-      // グリッド線
+      // グリッド線（ブロック間の区切り）
       ctx.fillStyle = CONFIG.COLORS.BACKGROUND;
-      ctx.fillRect(tileX + tileWidth - 1, screenY, 1, CONFIG.PLATFORM.HEIGHT);
+      ctx.fillRect(blockX + blockSize - 1, screenY, 1, CONFIG.PLATFORM.HEIGHT);
     }
   });
 }
@@ -225,33 +229,31 @@ export function drawWater(ctx: CanvasRenderingContext2D, state: GameState) {
   // 画面外はスキップ
   if (screenY > CONFIG.CANVAS_HEIGHT) return;
 
-  const pixelSize = 8; // ドットのサイズ
+  const pixelSize = 8; // 水本体のドットサイズ
+  const foamSize = CONFIG.WATER.FOAM_SIZE; // 飛沫のサイズ（1/4に縮小）
   const waveAmplitude = 8; // 波の振幅（ピクセル単位）
 
   // 水の本体をドット絵風に描画
   ctx.fillStyle = CONFIG.COLORS.WATER;
 
   for (let x = 0; x < CONFIG.CANVAS_WIDTH; x += pixelSize) {
-    // 波形の計算（ピクセル化）
     const waveOffset = Math.sin((x + water.waveOffset) * 0.08) * waveAmplitude;
     const pixelY = Math.floor((screenY + waveOffset) / pixelSize) * pixelSize;
 
-    // 水の縦列を描画
     const waterHeight = CONFIG.CANVAS_HEIGHT - pixelY;
     if (waterHeight > 0) {
       ctx.fillRect(x, pixelY, pixelSize, waterHeight);
     }
   }
 
-  // 波の泡（白いドット）
+  // 波の泡（白いドット）- サイズを1/4に縮小
   ctx.fillStyle = '#FFFFFF';
-  for (let x = 0; x < CONFIG.CANVAS_WIDTH; x += pixelSize * 2) {
+  for (let x = 0; x < CONFIG.CANVAS_WIDTH; x += foamSize * 3) {
     const waveOffset = Math.sin((x + water.waveOffset) * 0.08) * waveAmplitude;
     const pixelY = Math.floor((screenY + waveOffset) / pixelSize) * pixelSize;
 
-    // 波頭に白いドットを配置
     if (pixelY < CONFIG.CANVAS_HEIGHT) {
-      ctx.fillRect(x, pixelY, pixelSize, pixelSize);
+      ctx.fillRect(x, pixelY, foamSize, foamSize);
     }
   }
 }

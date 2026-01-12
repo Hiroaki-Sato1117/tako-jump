@@ -21,8 +21,9 @@ import {
   drawHUD,
   loadHighScore,
   saveHighScore,
+  applyIceFriction,
 } from '../game';
-import type { GameState } from '../game';
+import type { Platform, GameState } from '../game';
 import { useGameLoop, useKeyboardInput } from '../hooks';
 
 import tako0 from '../assets/tako-0.png';
@@ -72,19 +73,16 @@ function calculateKeyboardJump(
   chargeRatio: number,
   direction: { x: number; y: number }
 ): { vx: number; vy: number; facingRight: boolean } {
-  // 基本は真上（90度）
   let angle = Math.PI / 2;
 
-  // 方向指定があっても弱い影響のみ（15度だけ傾く）
   if (direction.x !== 0) {
     if (direction.x < 0) {
-      angle = Math.PI * 0.58; // 左上 約105度（真上から15度だけ左）
+      angle = Math.PI * 0.58;
     } else {
-      angle = Math.PI * 0.42; // 右上 約75度（真上から15度だけ右）
+      angle = Math.PI * 0.42;
     }
   }
 
-  // ジャンプ力（チャージ量に応じて）
   const power = CONFIG.JUMP.MIN_VELOCITY +
     (CONFIG.JUMP.MAX_VELOCITY - CONFIG.JUMP.MIN_VELOCITY) * chargeRatio;
 
@@ -100,9 +98,12 @@ export function Game() {
   const [state, setState] = useState<GameState>(createInitialState);
   const [images, setImages] = useState<{ [key: string]: HTMLImageElement }>({});
   const [imagesLoaded, setImagesLoaded] = useState(false);
-  const keyboard = useKeyboardInput();
-  const jumpDirectionRef = useRef({ x: 0, y: -1 }); // チャージ中の方向を保存
+
+  // パフォーマンス最適化: キーボード入力はRefベース
+  const { stateRef: keyboardRef, clearSpaceReleased } = useKeyboardInput();
+  const jumpDirectionRef = useRef({ x: 0, y: -1 });
   const waterDelayTimerRef = useRef<number | null>(null);
+  const currentPlatformRef = useRef<Platform | null>(null);
 
   // 画像をロード
   useEffect(() => {
@@ -144,7 +145,6 @@ export function Game() {
     newState.screen = 'playing';
     newState.stageStartTime = performance.now();
 
-    // 水の上昇を遅延開始
     const stageConfig = CONFIG.STAGES[0];
     waterDelayTimerRef.current = window.setTimeout(() => {
       setState(prev => ({
@@ -161,7 +161,6 @@ export function Game() {
     setState(prev => {
       const nextStageNum = prev.stage + 1;
       if (nextStageNum > CONFIG.STAGES.length) {
-        // 全ステージクリア
         return { ...prev, screen: 'cleared' };
       }
 
@@ -170,7 +169,6 @@ export function Game() {
       const moon = generateMoon(platforms);
       const totalHeight = stageConfig.totalHeight * CONFIG.CANVAS_HEIGHT;
 
-      // 水の上昇を遅延開始
       if (waterDelayTimerRef.current) {
         clearTimeout(waterDelayTimerRef.current);
       }
@@ -217,23 +215,24 @@ export function Game() {
     setState(createInitialState());
   }, []);
 
-  // ゲームループ
+  // ゲームループ（依存関係なし - 安定したコールバック）
   const updateGame = useCallback((deltaTime: number) => {
+    // キーボード入力をRefから直接読み取る
+    const keyboard = keyboardRef.current;
+
     setState(prev => {
       if (prev.screen !== 'playing') return prev;
 
       let newState = { ...prev };
       let tako = { ...newState.tako };
 
-      // 経過時間
       newState.elapsedTime = (performance.now() - newState.stageStartTime) / 1000;
 
-      // チャージ処理（スペースキー長押し中 - 地上でも空中でも可能）
+      // チャージ処理
       if (keyboard.isSpacePressed && tako.state !== 'dead') {
         if (tako.chargeStartTime === null) {
           tako.chargeStartTime = performance.now();
           tako.state = 'charging';
-          // 空中でチャージ開始時、現在のx速度をロック
           if (!tako.isGrounded) {
             tako.airChargeLockedVelocityX = tako.velocity.x;
           }
@@ -242,29 +241,24 @@ export function Game() {
           (performance.now() - tako.chargeStartTime) / CONFIG.JUMP.MAX_CHARGE_TIME,
           1
         );
-        // 地上チャージ中は矢印キーの方向を保存（空中チャージ中は無視）
         if (tako.isGrounded && (keyboard.arrowDirection.x !== 0 || keyboard.arrowDirection.y !== 0)) {
-          jumpDirectionRef.current = { ...keyboard.arrowDirection };
+          jumpDirectionRef.current = { x: keyboard.arrowDirection.x, y: keyboard.arrowDirection.y };
         }
-        // 空中チャージ中はx速度をロックした値に維持（慣性保持）
         if (tako.airChargeLockedVelocityX !== null) {
           tako.velocity.x = tako.airChargeLockedVelocityX;
         }
       }
 
-      // ジャンプ発動（スペースキーを離した瞬間）
-      // chargeStartTimeがnullでない = チャージ中だった
+      // ジャンプ発動
       const wasCharging = tako.chargeStartTime !== null;
       const wasAirCharge = tako.airChargeLockedVelocityX !== null;
       if (keyboard.spaceJustReleased && wasCharging && tako.state !== 'dead') {
         if (wasAirCharge) {
-          // 空中チャージの場合はジャンプせず、チャージのみ解除（慣性は維持）
           tako.state = 'jumping';
           tako.chargeStartTime = null;
           tako.chargeRatio = 0;
           tako.airChargeLockedVelocityX = null;
         } else {
-          // 地上チャージの場合のみジャンプ発動
           const { vx, vy, facingRight } = calculateKeyboardJump(
             tako.chargeRatio,
             jumpDirectionRef.current
@@ -276,11 +270,12 @@ export function Game() {
           tako.chargeStartTime = null;
           tako.chargeRatio = 0;
         }
-        // 方向をリセット
         jumpDirectionRef.current = { x: 0, y: -1 };
+        // spaceJustReleasedをクリア
+        keyboard.spaceJustReleased = false;
       }
 
-      // 空中での微調整（矢印キー）- 空中チャージ中は無視
+      // 空中微調整
       if (!tako.isGrounded && tako.state !== 'dead' && tako.airChargeLockedVelocityX === null) {
         if (keyboard.arrowDirection.x !== 0) {
           tako.velocity.x += keyboard.arrowDirection.x * CONFIG.TAKO.AIR_CONTROL * deltaTime * 60;
@@ -292,11 +287,17 @@ export function Game() {
         tako = applyGravity(tako);
         tako = updatePosition(tako);
 
-        // 床との衝突
         const collision = checkPlatformCollision(tako, newState.platforms, newState.camera.y);
         tako = collision.tako;
 
-        // 画面端のループ
+        if (collision.landed && collision.landedPlatform) {
+          currentPlatformRef.current = collision.landedPlatform;
+        }
+        if (!tako.isGrounded) {
+          currentPlatformRef.current = null;
+        }
+
+        tako = applyIceFriction(tako, currentPlatformRef.current);
         tako = wrapScreen(tako);
       }
 
@@ -331,12 +332,11 @@ export function Game() {
       // 水との衝突
       if (checkWaterCollision(tako, newState.water) && tako.state !== 'dead') {
         tako.state = 'dead';
-        tako.velocity = { x: 0, y: 0 }; // 死亡時に動きを止める
+        tako.velocity = { x: 0, y: 0 };
         newState.tako = tako;
         newState.lives--;
 
         if (newState.lives <= 0) {
-          // ゲームオーバー
           if (waterDelayTimerRef.current) {
             clearTimeout(waterDelayTimerRef.current);
           }
@@ -356,7 +356,6 @@ export function Game() {
             }));
           }, 1000);
         } else {
-          // リスポーン（1秒後に実行、死亡モーションを表示）
           const stageConfig = CONFIG.STAGES[newState.stage - 1];
 
           if (waterDelayTimerRef.current) {
@@ -386,14 +385,13 @@ export function Game() {
               };
             });
 
-            // 水の上昇を遅延開始
             waterDelayTimerRef.current = window.setTimeout(() => {
               setState(p => ({
                 ...p,
                 water: { ...p.water, isRising: true },
               }));
             }, stageConfig.waterDelay);
-          }, 1000); // 1秒後にリスポーン
+          }, 1000);
         }
       }
 
@@ -416,12 +414,7 @@ export function Game() {
 
       return newState;
     });
-
-    // spaceJustReleasedをクリア（ジャンプで消費した場合）
-    if (keyboard.spaceJustReleased) {
-      keyboard.clearSpaceReleased();
-    }
-  }, [keyboard]);
+  }, []); // 依存関係なし - keyboardRefは安定したref
 
   useGameLoop(updateGame, state.screen === 'playing');
 
@@ -433,29 +426,16 @@ export function Game() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // 背景
     drawBackground(ctx, state.camera.y);
-
-    // 星
     drawStars(ctx, state.stars, state.camera.y);
-
-    // 月
     drawMoon(ctx, state);
-
-    // 床
     drawPlatforms(ctx, state.platforms, state.camera.y);
-
-    // 水
     drawWater(ctx, state);
-
-    // タコ
     drawTako(ctx, state, images);
 
-    // UI描画
     if (state.screen === 'playing') {
       drawHUD(ctx, state);
 
-      // チャージインジケーター
       if (state.tako.state === 'charging' && state.tako.chargeRatio > 0) {
         const barWidth = 60;
         const barHeight = 8;
@@ -475,7 +455,6 @@ export function Game() {
         ctx.lineWidth = 1;
         ctx.strokeRect(barX, barY, barWidth, barHeight);
 
-        // ジャンプ方向インジケーター
         const arrowX = state.tako.position.x + CONFIG.TAKO.WIDTH / 2;
         const arrowY = state.tako.position.y - state.camera.y - 35;
         ctx.fillStyle = '#FFFFFF';
@@ -490,7 +469,6 @@ export function Game() {
         }
       }
 
-      // 操作説明
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
       ctx.font = '10px "Press Start 2P", monospace';
       ctx.textAlign = 'left';
@@ -579,19 +557,27 @@ export function Game() {
     }
   }, [state, images, imagesLoaded]);
 
-  // スペースキーでの画面遷移（プレイ中以外のみ）
+  // スペースキーでの画面遷移（プレイ中以外）- ポーリングでチェック
   useEffect(() => {
-    if (keyboard.spaceJustReleased && state.screen !== 'playing') {
-      if (state.screen === 'title') {
-        startGame();
-      } else if (state.screen === 'cleared') {
-        nextStage();
-      } else if (state.screen === 'gameover') {
-        returnToTitle();
+    if (state.screen === 'playing') return;
+
+    const checkSpaceKey = () => {
+      const keyboard = keyboardRef.current;
+      if (keyboard.spaceJustReleased) {
+        keyboard.spaceJustReleased = false;
+        if (state.screen === 'title') {
+          startGame();
+        } else if (state.screen === 'cleared') {
+          nextStage();
+        } else if (state.screen === 'gameover') {
+          returnToTitle();
+        }
       }
-      keyboard.clearSpaceReleased();
-    }
-  }, [keyboard.spaceJustReleased, state.screen, startGame, nextStage, returnToTitle, keyboard]);
+    };
+
+    const intervalId = setInterval(checkSpaceKey, 16);
+    return () => clearInterval(intervalId);
+  }, [state.screen, startGame, nextStage, returnToTitle]);
 
   return (
     <div className="w-full h-full flex items-center justify-center bg-[#2D2A5A]">
