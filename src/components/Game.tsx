@@ -559,40 +559,6 @@ export function Game() {
       ctx.fillRect(18, 18, 8, 24);
       ctx.fillRect(34, 18, 8, 24);
 
-      // チャージバーは地上にいる時のみ表示（空中チャージ時は非表示）
-      if (state.tako.state === 'charging' && state.tako.chargeRatio > 0 && state.tako.isGrounded) {
-        const barWidth = 60;
-        const barHeight = 8;
-        const barX = state.tako.position.x + CONFIG.TAKO.WIDTH / 2 - barWidth / 2;
-        const barY = state.tako.position.y - state.camera.y - 20;
-
-        ctx.fillStyle = '#333333';
-        ctx.fillRect(barX, barY, barWidth, barHeight);
-
-        const fillColor = state.tako.chargeRatio >= 1 ? '#FF4444' :
-          state.tako.chargeRatio >= 0.66 ? '#FF69B4' :
-          state.tako.chargeRatio >= 0.33 ? '#FFB6C1' : '#FFFFFF';
-        ctx.fillStyle = fillColor;
-        ctx.fillRect(barX, barY, barWidth * state.tako.chargeRatio, barHeight);
-
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(barX, barY, barWidth, barHeight);
-
-        const arrowX = state.tako.position.x + CONFIG.TAKO.WIDTH / 2;
-        const arrowY = state.tako.position.y - state.camera.y - 35;
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '16px monospace';
-        ctx.textAlign = 'center';
-        if (jumpDirectionRef.current.x < 0) {
-          ctx.fillText('←', arrowX, arrowY);
-        } else if (jumpDirectionRef.current.x > 0) {
-          ctx.fillText('→', arrowX, arrowY);
-        } else {
-          ctx.fillText('↑', arrowX, arrowY);
-        }
-      }
-
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
       ctx.font = '10px "Press Start 2P", monospace';
       ctx.textAlign = 'left';
