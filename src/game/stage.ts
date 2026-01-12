@@ -2,14 +2,35 @@ import { CONFIG } from './config';
 import type { StageConfig } from './config';
 import type { Platform, Moon, Star, Water, PlatformType } from './types';
 
+// シード付き乱数生成器（Mulberry32アルゴリズム）
+// 同じシードからは常に同じ乱数列が生成される
+function createSeededRandom(seed: number): () => number {
+  let state = seed;
+  return function() {
+    state = (state + 0x6D2B79F5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// 現在のステージ用乱数生成器
+let currentRandom: () => number = Math.random;
+
+// シードを設定（ステージ番号を使用）
+export function setRandomSeed(stageNumber: number): void {
+  const seed = stageNumber * 12345 + 98765;
+  currentRandom = createSeededRandom(seed);
+}
+
 // 乱数生成（整数）
 function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+  return Math.floor(currentRandom() * (max - min + 1)) + min;
 }
 
 // 乱数生成（小数）
 function randomInRange(min: number, max: number): number {
-  return Math.random() * (max - min) + min;
+  return currentRandom() * (max - min) + min;
 }
 
 // 床を生成
@@ -41,7 +62,7 @@ export function generatePlatforms(stageConfig: StageConfig): Platform[] {
     const width = blockCount * blockSize;
 
     // 氷の床かどうかを判定
-    const isIce = Math.random() < stageConfig.iceRatio;
+    const isIce = currentRandom() < stageConfig.iceRatio;
     const type: PlatformType = isIce ? 'ice' : 'normal';
 
     // 位置を計算（到達可能な範囲内）
@@ -92,11 +113,11 @@ export function generateStars(totalHeight: number): Star[] {
 
   for (let i = 0; i < starCount; i++) {
     const types: Star['type'][] = ['dot', 'cross', 'crescent', 'sparkle'];
-    const type = types[Math.floor(Math.random() * types.length)];
+    const type = types[Math.floor(currentRandom() * types.length)];
 
     stars.push({
-      x: Math.random() * CONFIG.CANVAS_WIDTH,
-      y: -totalHeight + Math.random() * (totalHeight + CONFIG.CANVAS_HEIGHT),
+      x: currentRandom() * CONFIG.CANVAS_WIDTH,
+      y: -totalHeight + currentRandom() * (totalHeight + CONFIG.CANVAS_HEIGHT),
       size: type === 'crescent' ? 12 : type === 'sparkle' ? 8 : randomInRange(2, 4),
       type,
     });

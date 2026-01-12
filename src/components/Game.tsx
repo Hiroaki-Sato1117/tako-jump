@@ -10,6 +10,7 @@ import {
   generatePlatforms,
   generateMoon,
   generateStars,
+  setRandomSeed,
   initWater,
   calculateScore,
   drawBackground,
@@ -34,6 +35,7 @@ import takoDead from '../assets/tako-dead.png';
 
 const createInitialState = (stage: number = 1, score: number = 0, lives: number = CONFIG.LIVES): GameState => {
   const stageConfig = CONFIG.STAGES[stage - 1];
+  setRandomSeed(stage); // ステージ番号でシード固定
   const platforms = generatePlatforms(stageConfig);
   const moon = generateMoon(platforms);
   const totalHeight = stageConfig.totalHeight * CONFIG.CANVAS_HEIGHT;
@@ -105,7 +107,7 @@ export function Game() {
   const [imagesLoaded, setImagesLoaded] = useState(false);
 
   // パフォーマンス最適化: キーボード入力はRefベース
-  const { stateRef: keyboardRef, clearSpaceReleased } = useKeyboardInput();
+  const { stateRef: keyboardRef, clearSpaceReleased: _clearSpaceReleased } = useKeyboardInput();
   const jumpDirectionRef = useRef({ x: 0, y: -1 });
   const waterDelayTimerRef = useRef<number | null>(null);
   const currentPlatformRef = useRef<Platform | null>(null);
@@ -170,6 +172,7 @@ export function Game() {
       }
 
       const stageConfig = CONFIG.STAGES[nextStageNum - 1];
+      setRandomSeed(nextStageNum); // ステージ番号でシード固定
       const platforms = generatePlatforms(stageConfig);
       const moon = generateMoon(platforms);
       const totalHeight = stageConfig.totalHeight * CONFIG.CANVAS_HEIGHT;

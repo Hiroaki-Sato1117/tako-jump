@@ -88,27 +88,11 @@ export function checkPlatformCollision(
   return { tako, landed: false, landedPlatform: null };
 }
 
-// 氷の床上での滑り処理
-export function applyIceFriction(tako: Tako, platform: Platform | null): Tako {
-  if (!platform || platform.type !== 'ice' || !tako.isGrounded) {
-    return tako;
-  }
-
-  // 氷の上で速度を徐々に減衰
-  const newVelocityX = tako.velocity.x * CONFIG.ICE.FRICTION;
-
-  // 速度が十分小さくなったら停止
-  if (Math.abs(newVelocityX) < 0.1) {
-    return {
-      ...tako,
-      velocity: { ...tako.velocity, x: 0 },
-    };
-  }
-
-  return {
-    ...tako,
-    velocity: { ...tako.velocity, x: newVelocityX },
-  };
+// 氷の床上での滑り処理（速度は一定を保つ - 摩擦なし）
+export function applyIceFriction(tako: Tako, _platform: Platform | null): Tako {
+  // 氷の床上では速度を変更しない（一度滑り出したら速度一定）
+  // 着地時のx速度がそのまま維持される
+  return tako;
 }
 
 // 画面端のループ（右端→左端、左端→右端）
