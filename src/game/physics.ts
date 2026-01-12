@@ -65,7 +65,10 @@ export function checkPlatformCollision(
 
     if (wasAbove && nowAtOrBelow && notTooDeep) {
       const isIce = platform.type === 'ice';
-      const newVelocityX = isIce ? tako.velocity.x * CONFIG.ICE.FRICTION : 0;
+      // 氷の床: 着地時の速度を0.7倍にして滑り開始
+      const newVelocityX = isIce
+        ? tako.velocity.x * CONFIG.ICE.LANDING_SPEED_FACTOR
+        : 0;
 
       return {
         tako: {

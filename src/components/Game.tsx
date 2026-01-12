@@ -68,10 +68,11 @@ const createInitialState = (stage: number = 1, score: number = 0, lives: number 
   };
 };
 
-// キーボード用のジャンプ計算
+// キーボード用のジャンプ計算（slidingVelocity: 氷の上で滑っている時の速度）
 function calculateKeyboardJump(
   chargeRatio: number,
-  direction: { x: number; y: number }
+  direction: { x: number; y: number },
+  slidingVelocity: number = 0
 ): { vx: number; vy: number; facingRight: boolean } {
   let angle = Math.PI / 2;
 
@@ -86,10 +87,14 @@ function calculateKeyboardJump(
   const power = CONFIG.JUMP.MIN_VELOCITY +
     (CONFIG.JUMP.MAX_VELOCITY - CONFIG.JUMP.MIN_VELOCITY) * chargeRatio;
 
+  // 横移動を0.7倍に + 滑り中の慣性を加算
+  const baseVx = power * Math.cos(angle) * CONFIG.HORIZONTAL_FACTOR;
+  const vx = baseVx + slidingVelocity;
+
   return {
-    vx: power * Math.cos(angle),
+    vx,
     vy: -power * Math.sin(angle),
-    facingRight: direction.x >= 0,
+    facingRight: slidingVelocity !== 0 ? slidingVelocity > 0 : direction.x >= 0,
   };
 }
 
@@ -228,6 +233,9 @@ export function Game() {
 
       newState.elapsedTime = (performance.now() - newState.stageStartTime) / 1000;
 
+      // 氷の上にいるかチェック
+      const onIcePlatform = currentPlatformRef.current?.type === 'ice' && tako.isGrounded;
+
       // チャージ処理
       if (keyboard.isSpacePressed && tako.state !== 'dead') {
         if (tako.chargeStartTime === null) {
@@ -241,7 +249,8 @@ export function Game() {
           (performance.now() - tako.chargeStartTime) / CONFIG.JUMP.MAX_CHARGE_TIME,
           1
         );
-        if (tako.isGrounded && (keyboard.arrowDirection.x !== 0 || keyboard.arrowDirection.y !== 0)) {
+        // 氷の上では方向入力を無効化（滑りをコントロールできない）
+        if (tako.isGrounded && !onIcePlatform && (keyboard.arrowDirection.x !== 0 || keyboard.arrowDirection.y !== 0)) {
           jumpDirectionRef.current = { x: keyboard.arrowDirection.x, y: keyboard.arrowDirection.y };
         }
         if (tako.airChargeLockedVelocityX !== null) {
@@ -252,6 +261,7 @@ export function Game() {
       // ジャンプ発動
       const wasCharging = tako.chargeStartTime !== null;
       const wasAirCharge = tako.airChargeLockedVelocityX !== null;
+      const isOnIce = currentPlatformRef.current?.type === 'ice';
       if (keyboard.spaceJustReleased && wasCharging && tako.state !== 'dead') {
         if (wasAirCharge) {
           tako.state = 'jumping';
@@ -259,9 +269,12 @@ export function Game() {
           tako.chargeRatio = 0;
           tako.airChargeLockedVelocityX = null;
         } else {
+          // 氷の上で滑っている場合は慣性を適用
+          const slidingVelocity = isOnIce ? tako.velocity.x : 0;
           const { vx, vy, facingRight } = calculateKeyboardJump(
             tako.chargeRatio,
-            jumpDirectionRef.current
+            jumpDirectionRef.current,
+            slidingVelocity
           );
           tako.velocity = { x: vx, y: vy };
           tako.state = 'jumping';
@@ -271,14 +284,13 @@ export function Game() {
           tako.chargeRatio = 0;
         }
         jumpDirectionRef.current = { x: 0, y: -1 };
-        // spaceJustReleasedをクリア
         keyboard.spaceJustReleased = false;
       }
 
-      // 空中微調整
+      // 空中微調整（横移動係数を適用）
       if (!tako.isGrounded && tako.state !== 'dead' && tako.airChargeLockedVelocityX === null) {
         if (keyboard.arrowDirection.x !== 0) {
-          tako.velocity.x += keyboard.arrowDirection.x * CONFIG.TAKO.AIR_CONTROL * deltaTime * 60;
+          tako.velocity.x += keyboard.arrowDirection.x * CONFIG.TAKO.AIR_CONTROL * CONFIG.HORIZONTAL_FACTOR * deltaTime * 60;
         }
       }
 

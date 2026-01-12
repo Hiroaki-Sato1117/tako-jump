@@ -58,10 +58,14 @@ export const CONFIG = {
 
   // 氷の足場設定
   ICE: {
-    FRICTION: 0.98,
+    FRICTION: 0.98, // 毎フレームの減衰率
+    LANDING_SPEED_FACTOR: 0.7, // 着地時の滑り速度係数（0.7倍に）
     COLOR: '#87CEEB',
     COLOR_LIGHT: '#B0E0E6',
   },
+
+  // ジャンプの横移動係数
+  HORIZONTAL_FACTOR: 0.7, // 横移動距離を0.7倍に
 
   // ステージ設定
   // 新ジャンプ高さ ≈ 16.2^2 / (2 * 0.35) ≈ 375px
