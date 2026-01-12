@@ -32,6 +32,36 @@ tako-jump/
 └── CLAUDE.md                 # AI開発ガイドライン
 ```
 
+## Assets
+
+### タコ（プレイヤーキャラクター）
+
+チャージ段階に応じて見た目が変化します。
+
+| 通常 | チャージ33% | チャージ66% | チャージ100% | 死亡 |
+|:----:|:----------:|:----------:|:-----------:|:----:|
+| ![tako-0](src/assets/tako-0.png) | ![tako-33](src/assets/tako-33.png) | ![tako-66](src/assets/tako-66.png) | ![tako-100](src/assets/tako-100.png) | ![tako-dead](src/assets/tako-dead.png) |
+
+### 足場
+
+| ノーマル | 氷 | キャタピラ |
+|:--------:|:--:|:---------:|
+| ![platform-normal](src/assets/platform_normal.png) | ![platform-ice](src/assets/platform_ice.png) | ![platform-caterpillar](src/assets/platform_caterpillar.png) |
+| 着地すると停止 | 摩擦0で滑る | 乗ると端まで運ばれる |
+
+### 背景・地面・うなぎ
+
+これらはCanvas APIで描画されています：
+
+| 要素 | 色 | 説明 |
+|------|-----|------|
+| 背景 | `#2D2A5A` | 紺色の夜空 |
+| 地面 | `#1E1B3A` | ステージ最下部の床 |
+| 水 | `#660099` | 下から迫ってくる紫色の水 |
+| 月 | `#FFD93D` | ゴール（黄色） |
+| 星 | `#9B8AC4` | 背景装飾（薄紫） |
+| うなぎ | `#FF6B6B` | スーパージャンプアイテム（薄い赤の円） |
+
 ## 用語
 
 | 用語 | 説明 |
