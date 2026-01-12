@@ -8,6 +8,7 @@ const imageCache: Map<string, HTMLImageElement> = new Map();
 import platformNormalSrc from '../assets/platform_normal.png';
 import platformIceSrc from '../assets/platform_ice.png';
 import platformCaterpillarSrc from '../assets/platform_caterpillar.png';
+import waterSrc from '../assets/water.png';
 
 // 足場画像のキャッシュ
 let platformImages: {
@@ -19,6 +20,9 @@ let platformImages: {
   ice: null,
   caterpillar: null,
 };
+
+// 水画像のキャッシュ
+let waterImage: HTMLImageElement | null = null;
 
 // 足場画像の1ブロックあたりのサイズ（ソース画像内）
 const PLATFORM_IMAGE_INFO = {
@@ -38,13 +42,15 @@ export async function loadPlatformImages(): Promise<void> {
     });
   };
 
-  const [normal, ice, caterpillar] = await Promise.all([
+  const [normal, ice, caterpillar, water] = await Promise.all([
     loadImg(platformNormalSrc),
     loadImg(platformIceSrc),
     loadImg(platformCaterpillarSrc),
+    loadImg(waterSrc),
   ]);
 
   platformImages = { normal, ice, caterpillar };
+  waterImage = water;
 }
 
 // 画像をロード
@@ -323,58 +329,38 @@ export function drawWater(ctx: CanvasRenderingContext2D, state: GameState) {
   // 画面外はスキップ
   if (screenY > CONFIG.CANVAS_HEIGHT) return;
 
-  const zigzagWidth = 16; // ギザギザの幅（三角形1つ分）
-  const zigzagHeight = 12; // ギザギザの高さ（三角形の頂点までの高さ）
-
-  // 水の本体を描画（マゼンタ/紫）
-  ctx.fillStyle = CONFIG.COLORS.WATER;
-
-  // ギザギザ（三角波）の上端を描画 - 左に流れるアニメーション
-  ctx.beginPath();
-  ctx.moveTo(0, CONFIG.CANVAS_HEIGHT);
-
-  // 左方向に流れるアニメーションオフセット
-  const animOffset = -(water.waveOffset * 0.3) % zigzagWidth;
-
-  // 左端から開始して右端まで三角形を描画
-  let startX = -zigzagWidth * 2 + animOffset;
-
-  ctx.moveTo(startX, screenY + zigzagHeight);
-
-  for (let x = startX; x <= CONFIG.CANVAS_WIDTH + zigzagWidth * 2; x += zigzagWidth) {
-    // 三角形の底辺から頂点へ
-    ctx.lineTo(x + zigzagWidth / 2, screenY);
-    // 頂点から次の底辺へ
-    ctx.lineTo(x + zigzagWidth, screenY + zigzagHeight);
+  // 画像がロードされていない場合はフォールバック
+  if (!waterImage) {
+    ctx.fillStyle = CONFIG.COLORS.WATER;
+    ctx.fillRect(0, screenY, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT - screenY);
+    return;
   }
 
-  // 画面下端まで塗りつぶし
-  ctx.lineTo(CONFIG.CANVAS_WIDTH + zigzagWidth * 2, CONFIG.CANVAS_HEIGHT);
-  ctx.lineTo(-zigzagWidth * 2, CONFIG.CANVAS_HEIGHT);
-  ctx.closePath();
-  ctx.fill();
+  // 画像を1.5倍に拡大して表示（2/3の幅を使用 = 1.5倍表示）
+  const scale = 1.5;
+  const imgWidth = waterImage.width * scale;
+  const imgHeight = waterImage.height * scale;
 
-  // 白い点を水中に散らばらせる（斜めの格子パターン）
-  ctx.fillStyle = '#FFFFFF';
-  const dotSize = 2;
-  const dotSpacingX = 24; // 横方向の間隔
-  const dotSpacingY = 16; // 縦方向の間隔
-  const diagonalOffset = 12; // 行ごとの斜めオフセット
+  // 画像をタイル状に並べて水面を描画
+  // 水面の上端から開始
+  const startY = screenY;
 
-  const waterTop = screenY + zigzagHeight + 4;
-  const waterBottom = CONFIG.CANVAS_HEIGHT;
+  // 横方向にタイル
+  for (let x = 0; x < CONFIG.CANVAS_WIDTH; x += imgWidth) {
+    // 縦方向にタイル（水面から画面下端まで）
+    for (let y = startY; y < CONFIG.CANVAS_HEIGHT; y += imgHeight) {
+      const drawWidth = Math.min(imgWidth, CONFIG.CANVAS_WIDTH - x);
+      const drawHeight = Math.min(imgHeight, CONFIG.CANVAS_HEIGHT - y);
 
-  for (let row = 0; waterTop + row * dotSpacingY < waterBottom; row++) {
-    const y = waterTop + row * dotSpacingY;
-    if (y > CONFIG.CANVAS_HEIGHT) break;
+      // 描画する部分のソース領域を計算
+      const srcWidth = drawWidth / scale;
+      const srcHeight = drawHeight / scale;
 
-    // 各行を斜めにオフセット（斜めの線パターンを作る）
-    const rowOffset = (row * diagonalOffset) % dotSpacingX;
-
-    for (let x = -dotSpacingX + rowOffset; x < CONFIG.CANVAS_WIDTH + dotSpacingX; x += dotSpacingX) {
-      if (x >= -dotSize && x <= CONFIG.CANVAS_WIDTH) {
-        ctx.fillRect(x, y, dotSize, dotSize);
-      }
+      ctx.drawImage(
+        waterImage,
+        0, 0, srcWidth, srcHeight, // ソース領域
+        x, y, drawWidth, drawHeight // 描画領域
+      );
     }
   }
 }
