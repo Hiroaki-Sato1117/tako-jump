@@ -8,8 +8,8 @@ export const CONFIG = {
   TAKO: {
     WIDTH: 28,
     HEIGHT: 33,
-    GRAVITY: 0.35, // 0.5 * 0.7 = 0.35（落下速度を0.7倍に）
-    MAX_FALL_SPEED: 10.5, // 15 * 0.7 = 10.5（落下速度を0.7倍に）
+    GRAVITY: 0.4, // 重力加速度
+    MAX_FALL_SPEED: 10.5,
     AIR_CONTROL: 0.3,
   },
 
@@ -113,8 +113,8 @@ export const CONFIG = {
       platformCount: 12,
       blockCountMin: 4, // 難しい
       blockCountMax: 8,
-      gapMin: 240, // 難しい
-      gapMax: 320,
+      gapMin: 200, // 難しい（足場幅が狭いので間隔は抑える）
+      gapMax: 280,
       normalRatio: 1.0,
       iceRatio: 0,
       caterpillarRatio: 0,
@@ -164,8 +164,8 @@ export const CONFIG = {
       platformCount: 12,
       blockCountMin: 4, // 難しい
       blockCountMax: 8,
-      gapMin: 240, // 難しい
-      gapMax: 320,
+      gapMin: 220, // 難しい
+      gapMax: 300,
       normalRatio: 0,
       iceRatio: 1.0,
       caterpillarRatio: 0,
@@ -249,8 +249,8 @@ export const CONFIG = {
       platformCount: 16,
       blockCountMin: 4, // 難しい
       blockCountMax: 8,
-      gapMin: 240, // 難しい
-      gapMax: 320,
+      gapMin: 220, // 難しい
+      gapMax: 300,
       normalRatio: 0,
       iceRatio: 0.4,
       caterpillarRatio: 0.6,
