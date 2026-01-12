@@ -10,6 +10,7 @@ export const CONFIG = {
     HEIGHT: 35, // 33 * 1.05
     GRAVITY: 0.36, // 重力加速度
     MAX_FALL_SPEED: 10.5,
+    MAX_HORIZONTAL_SPEED: 8, // 横移動速度の最大値
     AIR_CONTROL: 0.25, // 空中での横移動強度（チャージ中以外）
     AIR_CONTROL_CHARGING: 0.05, // チャージ中の空中横移動強度
   },
@@ -60,6 +61,7 @@ export const CONFIG = {
   // 氷の足場設定
   ICE: {
     // 摩擦0: 着地時の水平速度がそのまま滑り速度になる（入射角に比例）
+    MAX_SLIDE_SPEED: 6, // 氷の上での最大滑り速度
     COLOR: '#87CEEB',
     COLOR_LIGHT: '#B0E0E6',
   },

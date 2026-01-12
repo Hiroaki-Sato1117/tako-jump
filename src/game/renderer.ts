@@ -434,8 +434,8 @@ export function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.font = '12px "Press Start 2P", monospace';
   ctx.textAlign = 'left';
 
-  // ステージ
-  ctx.fillText(`STAGE ${state.stage}`, 10, 30);
+  // ステージ（ポーズボタンの下に配置）
+  ctx.fillText(`STAGE ${state.stage}`, 10, 70);
 
   // スコア
   ctx.textAlign = 'right';
@@ -445,10 +445,10 @@ export function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.textAlign = 'left';
   for (let i = 0; i < CONFIG.LIVES; i++) {
     ctx.fillStyle = i < state.lives ? '#FFFFFF' : '#666666';
-    ctx.fillRect(10 + i * 28, 45, 20, 24);
+    ctx.fillRect(10 + i * 28, 85, 20, 24);
     ctx.fillStyle = i < state.lives ? '#000000' : '#444444';
-    ctx.fillRect(13 + i * 28, 52, 5, 6);
-    ctx.fillRect(22 + i * 28, 52, 5, 6);
+    ctx.fillRect(13 + i * 28, 92, 5, 6);
+    ctx.fillRect(22 + i * 28, 92, 5, 6);
   }
 
   // タイム

@@ -28,6 +28,8 @@ import {
   applyCaterpillarMovement,
   checkEelCollision,
   loadPlatformImages,
+  checkFallenOffPlatform,
+  clampHorizontalVelocity,
 } from '../game';
 import type { Platform, GameState } from '../game';
 import { useGameLoop, useKeyboardInput } from '../hooks';
@@ -329,8 +331,14 @@ export function Game() {
 
         tako = applyIceFriction(tako, currentPlatformRef.current);
 
+        // 足場から落ちたかチェック（氷で滑り落ちた場合など）
+        tako = checkFallenOffPlatform(tako, currentPlatformRef.current);
+
         // キャタピラ床上での移動
         tako = applyCaterpillarMovement(tako, currentPlatformRef.current);
+
+        // 横移動速度を制限
+        tako = clampHorizontalVelocity(tako);
 
         tako = wrapScreen(tako);
 
@@ -540,18 +548,19 @@ export function Game() {
     if (state.screen === 'playing' || state.screen === 'paused') {
       drawHUD(ctx, state);
 
-      // ポーズボタン（左上）
+      // ポーズボタン（左上、STAGEの上）
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      ctx.fillRect(CONFIG.CANVAS_WIDTH - 50, 10, 40, 40);
+      ctx.fillRect(10, 10, 40, 40);
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 2;
-      ctx.strokeRect(CONFIG.CANVAS_WIDTH - 50, 10, 40, 40);
+      ctx.strokeRect(10, 10, 40, 40);
       // ポーズアイコン（||）
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(CONFIG.CANVAS_WIDTH - 42, 18, 8, 24);
-      ctx.fillRect(CONFIG.CANVAS_WIDTH - 26, 18, 8, 24);
+      ctx.fillRect(18, 18, 8, 24);
+      ctx.fillRect(34, 18, 8, 24);
 
-      if (state.tako.state === 'charging' && state.tako.chargeRatio > 0) {
+      // チャージバーは地上にいる時のみ表示（空中チャージ時は非表示）
+      if (state.tako.state === 'charging' && state.tako.chargeRatio > 0 && state.tako.isGrounded) {
         const barWidth = 60;
         const barHeight = 8;
         const barX = state.tako.position.x + CONFIG.TAKO.WIDTH / 2 - barWidth / 2;
@@ -757,10 +766,9 @@ export function Game() {
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
 
-    // プレイ中: ポーズボタンのクリック判定
+    // プレイ中: ポーズボタンのクリック判定（左上）
     if (state.screen === 'playing') {
-      if (x >= CONFIG.CANVAS_WIDTH - 50 && x <= CONFIG.CANVAS_WIDTH - 10 &&
-          y >= 10 && y <= 50) {
+      if (x >= 10 && x <= 50 && y >= 10 && y <= 50) {
         pauseGame();
       }
     }

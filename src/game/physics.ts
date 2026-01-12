@@ -67,13 +67,15 @@ export function checkPlatformCollision(
       const isIce = platform.type === 'ice';
       const isCaterpillar = platform.type === 'caterpillar';
 
-      // 氷の床: 着地時のx速度を維持して滑り開始
+      // 氷の床: 着地時のx速度を維持して滑り開始（最大速度制限あり）
       // キャタピラ床: x速度は0にするが、キャタピラの移動で動く
       // 通常床: x速度は0
       let newVelocityX = 0;
       if (isIce) {
-        // 着地時の水平速度をそのまま滑り速度に（摩擦0、入射角に比例）
-        newVelocityX = tako.velocity.x;
+        // 着地時の水平速度をそのまま滑り速度に（摩擦0、入射角に比例、最大速度制限）
+        const rawVelocityX = tako.velocity.x;
+        const maxSlide = CONFIG.ICE.MAX_SLIDE_SPEED;
+        newVelocityX = Math.max(-maxSlide, Math.min(maxSlide, rawVelocityX));
       } else if (isCaterpillar) {
         // キャタピラ床では速度0（キャタピラによる移動は別処理）
         newVelocityX = 0;
@@ -102,6 +104,44 @@ export function applyIceFriction(tako: Tako, _platform: Platform | null): Tako {
   // 氷の床上では速度を変更しない（一度滑り出したら速度一定）
   // 着地時のx速度がそのまま維持される
   return tako;
+}
+
+// 足場から落ちたかどうかをチェック
+export function checkFallenOffPlatform(tako: Tako, platform: Platform | null): Tako {
+  if (!platform || !tako.isGrounded) {
+    return tako;
+  }
+
+  const takoLeft = tako.position.x;
+  const takoRight = tako.position.x + CONFIG.TAKO.WIDTH;
+  const platLeft = platform.x;
+  const platRight = platform.x + platform.width;
+
+  // 足場の端から外れたら落下開始
+  if (takoRight < platLeft || takoLeft > platRight) {
+    return {
+      ...tako,
+      isGrounded: false,
+      state: tako.state === 'charging' ? 'charging' : 'jumping',
+    };
+  }
+
+  return tako;
+}
+
+// 横移動速度を制限
+export function clampHorizontalVelocity(tako: Tako): Tako {
+  const maxSpeed = CONFIG.TAKO.MAX_HORIZONTAL_SPEED;
+  const clampedVx = Math.max(-maxSpeed, Math.min(maxSpeed, tako.velocity.x));
+
+  if (clampedVx === tako.velocity.x) {
+    return tako;
+  }
+
+  return {
+    ...tako,
+    velocity: { ...tako.velocity, x: clampedVx },
+  };
 }
 
 // 画面端のループ（右端→左端、左端→右端）
