@@ -10,7 +10,7 @@ export const CONFIG = {
     HEIGHT: 35, // 33 * 1.05
     GRAVITY: 0.36, // 重力加速度
     MAX_FALL_SPEED: 10.5,
-    AIR_CONTROL: 2.5, // 空中での横移動強度（チャージ中以外）
+    AIR_CONTROL: 0.25, // 空中での横移動強度（チャージ中以外）
     AIR_CONTROL_CHARGING: 0.05, // チャージ中の空中横移動強度
   },
 
